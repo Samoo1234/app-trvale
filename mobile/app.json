@@ -1,46 +1,54 @@
 {
-    "expo": {
-        "name": "TRVALE DO BOI",
-        "slug": "trvale-mobile",
-        "version": "1.0.0",
-        "orientation": "portrait",
-        "icon": "./assets/icon.png",
-        "userInterfaceStyle": "light",
-        "splash": {
-            "image": "./assets/splash.png",
-            "resizeMode": "contain",
-            "backgroundColor": "#B71C1C"
-        },
-        "assetBundlePatterns": [
-            "**/*"
-        ],
-        "ios": {
-            "supportsTablet": false,
-            "bundleIdentifier": "com.trvale.transporte",
-            "infoPlist": {
-                "NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para calcular a distância percorrida na viagem.",
-                "NSLocationAlwaysAndWhenInUseUsageDescription": "Precisamos da sua localização para calcular a distância percorrida na viagem, mesmo em segundo plano."
-            }
-        },
-        "android": {
-            "adaptiveIcon": {
-                "foregroundImage": "./assets/adaptive-icon.png",
-                "backgroundColor": "#B71C1C"
-            },
-            "package": "com.trvale.transporte",
-            "permissions": [
-                "ACCESS_COARSE_LOCATION",
-                "ACCESS_FINE_LOCATION",
-                "ACCESS_BACKGROUND_LOCATION"
-            ]
-        },
-        "plugins": [
-            [
-                "expo-location",
-                {
-                    "locationAlwaysAndWhenInUsePermission": "Precisamos da sua localização para calcular a distância percorrida na viagem."
-                }
-            ]
-        ]
+  "expo": {
+    "name": "TRVALE DO BOI",
+    "slug": "trvale-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#B71C1C"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.trvale.transporte",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para calcular a distância percorrida na viagem.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Precisamos da sua localização para calcular a distância percorrida na viagem, mesmo em segundo plano."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#B71C1C"
+      },
+      "package": "com.trvale.transporte",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.FOREGROUND_SERVICE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Precisamos da sua localização para calcular a distância percorrida na viagem."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9658baed-d126-4a2b-bd0e-8b7ac8da3399"
+      }
     }
+  }
 }
