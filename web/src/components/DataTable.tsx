@@ -93,8 +93,9 @@ export function DataTable({ viagens, loading = false, onViewDetail }: DataTableP
                             </td>
                             <td className="text-center">
                                 <button
+                                    type="button"
                                     onClick={() => onViewDetail?.(viagem)}
-                                    className="inline-flex items-center gap-1 text-primary hover:text-primary-dark font-medium text-sm transition-colors"
+                                    className="inline-flex items-center gap-1 text-primary hover:text-primary-dark font-medium text-sm transition-colors cursor-pointer"
                                     title="Ver Minuta"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
