@@ -1,0 +1,46 @@
+{
+    "expo": {
+        "name": "TRVALE DO BOI",
+        "slug": "trvale-mobile",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "icon": "./assets/icon.png",
+        "userInterfaceStyle": "light",
+        "splash": {
+            "image": "./assets/splash.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#B71C1C"
+        },
+        "assetBundlePatterns": [
+            "**/*"
+        ],
+        "ios": {
+            "supportsTablet": false,
+            "bundleIdentifier": "com.trvale.transporte",
+            "infoPlist": {
+                "NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para calcular a distância percorrida na viagem.",
+                "NSLocationAlwaysAndWhenInUseUsageDescription": "Precisamos da sua localização para calcular a distância percorrida na viagem, mesmo em segundo plano."
+            }
+        },
+        "android": {
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/adaptive-icon.png",
+                "backgroundColor": "#B71C1C"
+            },
+            "package": "com.trvale.transporte",
+            "permissions": [
+                "ACCESS_COARSE_LOCATION",
+                "ACCESS_FINE_LOCATION",
+                "ACCESS_BACKGROUND_LOCATION"
+            ]
+        },
+        "plugins": [
+            [
+                "expo-location",
+                {
+                    "locationAlwaysAndWhenInUsePermission": "Precisamos da sua localização para calcular a distância percorrida na viagem."
+                }
+            ]
+        ]
+    }
+}

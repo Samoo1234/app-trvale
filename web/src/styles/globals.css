@@ -1,0 +1,176 @@
+/* =============================================================================
+   TRVALE DO BOI - Estilos Globais
+   Painel Administrativo Web
+   ============================================================================= */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset e configurações base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #F2F2F2;
+  color: #1C1C1C;
+  min-height: 100vh;
+}
+
+/* Scrollbar customizada */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F2F2F2;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #BDBDBD;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9E9E9E;
+}
+
+/* Classes utilitárias customizadas */
+@layer components {
+  /* Cards */
+  .card {
+    @apply bg-white rounded-xl shadow-md p-6;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:shadow-lg hover:-translate-y-1;
+  }
+
+  /* Botões */
+  .btn {
+    @apply px-6 py-3 rounded-lg font-semibold transition-all duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary text-white hover:bg-primary-dark;
+  }
+
+  .btn-secondary {
+    @apply btn bg-gray-200 text-gray-800 hover:bg-gray-300;
+  }
+
+  .btn-outline {
+    @apply btn border-2 border-primary text-primary hover:bg-primary hover:text-white;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200;
+  }
+
+  .input-error {
+    @apply input border-red-500 focus:ring-red-500;
+  }
+
+  /* Labels */
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* Tabela */
+  .table-container {
+    @apply bg-white rounded-xl shadow-md overflow-hidden;
+  }
+
+  .table {
+    @apply w-full;
+  }
+
+  .table th {
+    @apply px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50;
+  }
+
+  .table td {
+    @apply px-6 py-4 text-sm text-gray-900;
+  }
+
+  .table tr {
+    @apply border-b border-gray-100 last:border-0;
+  }
+
+  .table tbody tr:hover {
+    @apply bg-gray-50;
+  }
+
+  /* Badges */
+  .badge {
+    @apply px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .badge-success {
+    @apply badge bg-green-100 text-green-800;
+  }
+
+  .badge-warning {
+    @apply badge bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-error {
+    @apply badge bg-red-100 text-red-800;
+  }
+
+  .badge-info {
+    @apply badge bg-blue-100 text-blue-800;
+  }
+
+  /* Stat Cards */
+  .stat-card {
+    @apply card flex flex-col items-center justify-center text-center min-h-[140px];
+  }
+
+  .stat-value {
+    @apply text-4xl font-bold text-primary mb-1;
+  }
+
+  .stat-label {
+    @apply text-sm text-gray-500;
+  }
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Loading spinner */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #F2F2F2;
+  border-top-color: #B71C1C;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
