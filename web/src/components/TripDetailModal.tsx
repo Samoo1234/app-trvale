@@ -23,6 +23,12 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
 
     // Função para gerar PDF com jsPDF (meia página A4)
     function handleGeneratePDF() {
+        // Guard clause para TypeScript - viagem já foi verificado no escopo pai
+        if (!viagem) return;
+
+        // Captura local para TypeScript type narrowing
+        const trip = viagem;
+
         // Criar documento A4 (210mm x 297mm), mas usaremos metade da altura
         const doc = new jsPDF({
             orientation: 'portrait',
@@ -70,8 +76,8 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text(viagem.motoristas?.nome || 'Não informado', 10, y + 5);
-        doc.text(viagem.veiculo || 'N/A', 110, y + 5);
+        doc.text(trip.motoristas?.nome || 'Não informado', 10, y + 5);
+        doc.text(trip.veiculo || 'N/A', 110, y + 5);
 
         y += 15;
 
@@ -88,8 +94,8 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
 
         // Truncar texto longo
         const maxTextWidth = 90;
-        const origem = viagem.origem.length > 40 ? viagem.origem.substring(0, 37) + '...' : viagem.origem;
-        const destino = viagem.destino.length > 40 ? viagem.destino.substring(0, 37) + '...' : viagem.destino;
+        const origem = trip.origem.length > 40 ? trip.origem.substring(0, 37) + '...' : trip.origem;
+        const destino = trip.destino.length > 40 ? trip.destino.substring(0, 37) + '...' : trip.destino;
 
         doc.text(origem, 10, y + 5);
         doc.text(destino, 110, y + 5);
@@ -118,7 +124,7 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
         doc.text('CABEÇAS DE GADO', 10 + (colWidth - 5) / 2, y + 6, { align: 'center' });
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text(String(viagem.qtd_gado), 10 + (colWidth - 5) / 2, y + 18, { align: 'center' });
+        doc.text(String(trip.qtd_gado), 10 + (colWidth - 5) / 2, y + 18, { align: 'center' });
 
         // KM Percorrido
         doc.setFillColor(254, 226, 226); // vermelho claro
@@ -129,7 +135,7 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
         doc.text('KM PERCORRIDO', 10 + colWidth + (colWidth - 5) / 2, y + 6, { align: 'center' });
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text(formatarKM(viagem.km_total), 10 + colWidth + (colWidth - 5) / 2, y + 18, { align: 'center' });
+        doc.text(formatarKM(trip.km_total), 10 + colWidth + (colWidth - 5) / 2, y + 18, { align: 'center' });
 
         // Duração
         doc.setFillColor(229, 231, 235); // cinza claro
@@ -140,7 +146,7 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
         doc.text('DURAÇÃO', 10 + colWidth * 2 + (colWidth - 5) / 2, y + 6, { align: 'center' });
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
-        doc.text(calcularDuracao(viagem.inicio_em, viagem.fim_em), 10 + colWidth * 2 + (colWidth - 5) / 2, y + 18, { align: 'center' });
+        doc.text(calcularDuracao(trip.inicio_em, trip.fim_em), 10 + colWidth * 2 + (colWidth - 5) / 2, y + 18, { align: 'center' });
 
         y += 32;
 
@@ -154,8 +160,8 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
-        doc.text(formatarData(viagem.inicio_em, true), 10, y + 5);
-        doc.text(viagem.fim_em ? formatarData(viagem.fim_em, true) : 'Em andamento', 110, y + 5);
+        doc.text(formatarData(trip.inicio_em, true), 10, y + 5);
+        doc.text(trip.fim_em ? formatarData(trip.fim_em, true) : 'Em andamento', 110, y + 5);
 
         y += 15;
 
