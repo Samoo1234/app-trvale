@@ -2,11 +2,12 @@
 
 // =============================================================================
 // TRVALE DO BOI - Modal de Minuta Digital
-// Exibe detalhes completos de uma viagem
+// Exibe detalhes completos de uma viagem com geração de PDF
 // =============================================================================
 
 import { Viagem } from '@/lib/supabase';
 import { formatarData, formatarKM, calcularDuracao } from '@/lib/utils';
+import jsPDF from 'jspdf';
 
 interface TripDetailModalProps {
     viagem: Viagem | null;
@@ -17,9 +18,159 @@ interface TripDetailModalProps {
 export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProps) {
     if (!isOpen || !viagem) return null;
 
-    // Função para imprimir a minuta
-    function handlePrint() {
-        window.print();
+    // Gerar número da viagem (primeiros 8 caracteres do ID em maiúsculo)
+    const numeroViagem = viagem.id.slice(0, 8).toUpperCase();
+
+    // Função para gerar PDF com jsPDF (meia página A4)
+    function handleGeneratePDF() {
+        // Criar documento A4 (210mm x 297mm), mas usaremos metade da altura
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: [210, 148.5] // Meia página A4
+        });
+
+        const primaryColor: [number, number, number] = [183, 28, 28]; // #B71C1C
+        const pageWidth = 210;
+        let y = 0;
+
+        // ============ HEADER ============
+        doc.setFillColor(...primaryColor);
+        doc.rect(0, 0, pageWidth, 28, 'F');
+
+        // Título
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('MINUTA DIGITAL', 10, 12);
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text('TRVALE DO BOI - Transportadora', 10, 18);
+
+        // Número da viagem (destaque no header)
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Viagem Nº: ${numeroViagem}`, 10, 25);
+
+        // Data de emissão no canto direito
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        const dataEmissao = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        doc.text(dataEmissao, pageWidth - 10, 12, { align: 'right' });
+
+        y = 35;
+
+        // ============ MOTORISTA E VEÍCULO ============
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(7);
+        doc.text('MOTORISTA', 10, y);
+        doc.text('PLACA DO VEÍCULO', 110, y);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(viagem.motoristas?.nome || 'Não informado', 10, y + 5);
+        doc.text(viagem.veiculo || 'N/A', 110, y + 5);
+
+        y += 15;
+
+        // ============ ITINERÁRIO ============
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('ORIGEM', 10, y);
+        doc.text('DESTINO', 110, y);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+
+        // Truncar texto longo
+        const maxTextWidth = 90;
+        const origem = viagem.origem.length > 40 ? viagem.origem.substring(0, 37) + '...' : viagem.origem;
+        const destino = viagem.destino.length > 40 ? viagem.destino.substring(0, 37) + '...' : viagem.destino;
+
+        doc.text(origem, 10, y + 5);
+        doc.text(destino, 110, y + 5);
+
+        // Seta entre origem e destino
+        doc.setTextColor(...primaryColor);
+        doc.setFontSize(14);
+        doc.text('→', 100, y + 5);
+
+        y += 18;
+
+        // ============ LINHA DIVISÓRIA ============
+        doc.setDrawColor(200, 200, 200);
+        doc.line(10, y, pageWidth - 10, y);
+        y += 5;
+
+        // ============ DADOS DA CARGA (3 COLUNAS) ============
+        const colWidth = (pageWidth - 20) / 3;
+
+        // Cabeças de Gado
+        doc.setFillColor(220, 252, 231); // verde claro
+        doc.roundedRect(10, y, colWidth - 5, 25, 3, 3, 'F');
+        doc.setTextColor(22, 101, 52);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('CABEÇAS DE GADO', 10 + (colWidth - 5) / 2, y + 6, { align: 'center' });
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(String(viagem.qtd_gado), 10 + (colWidth - 5) / 2, y + 18, { align: 'center' });
+
+        // KM Percorrido
+        doc.setFillColor(254, 226, 226); // vermelho claro
+        doc.roundedRect(10 + colWidth, y, colWidth - 5, 25, 3, 3, 'F');
+        doc.setTextColor(...primaryColor);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('KM PERCORRIDO', 10 + colWidth + (colWidth - 5) / 2, y + 6, { align: 'center' });
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(formatarKM(viagem.km_total), 10 + colWidth + (colWidth - 5) / 2, y + 18, { align: 'center' });
+
+        // Duração
+        doc.setFillColor(229, 231, 235); // cinza claro
+        doc.roundedRect(10 + colWidth * 2, y, colWidth - 5, 25, 3, 3, 'F');
+        doc.setTextColor(55, 65, 81);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('DURAÇÃO', 10 + colWidth * 2 + (colWidth - 5) / 2, y + 6, { align: 'center' });
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(calcularDuracao(viagem.inicio_em, viagem.fim_em), 10 + colWidth * 2 + (colWidth - 5) / 2, y + 18, { align: 'center' });
+
+        y += 32;
+
+        // ============ DATAS ============
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('INÍCIO DA VIAGEM', 10, y);
+        doc.text('FIM DA VIAGEM', 110, y);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text(formatarData(viagem.inicio_em, true), 10, y + 5);
+        doc.text(viagem.fim_em ? formatarData(viagem.fim_em, true) : 'Em andamento', 110, y + 5);
+
+        y += 15;
+
+        // ============ FOOTER ============
+        doc.setDrawColor(200, 200, 200);
+        doc.line(10, y, pageWidth - 10, y);
+        y += 5;
+
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Documento gerado automaticamente pelo sistema TRVALE DO BOI', pageWidth / 2, y + 3, { align: 'center' });
+
+        // Salvar PDF
+        doc.save(`minuta_${numeroViagem}.pdf`);
     }
 
     return (
@@ -31,9 +182,9 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
             />
 
             {/* Modal */}
-            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto print:max-w-full print:shadow-none print:rounded-none">
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div className="bg-primary text-white p-6 rounded-t-2xl print:rounded-none">
+                <div className="bg-primary text-white p-6 rounded-t-2xl">
                     <div className="flex justify-between items-start">
                         <div>
                             <h2 className="text-2xl font-bold">Minuta Digital</h2>
@@ -42,14 +193,15 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
                             </p>
                         </div>
                         <button
+                            type="button"
                             onClick={onClose}
-                            className="text-white/80 hover:text-white text-2xl font-bold print:hidden"
+                            className="text-white/80 hover:text-white text-2xl font-bold"
                         >
                             ×
                         </button>
                     </div>
                     <div className="mt-4 text-sm text-white/80">
-                        Viagem Nº: <span className="font-mono text-white">{viagem.id.slice(0, 8).toUpperCase()}</span>
+                        Viagem Nº: <span className="font-mono text-white text-lg font-bold">{numeroViagem}</span>
                     </div>
                 </div>
 
@@ -125,52 +277,25 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
                         </div>
                     </section>
 
-                    {/* Status */}
-                    <section className="flex justify-between items-center border-t pt-6">
-                        <div>
-                            <label className="text-xs text-gray-500 uppercase tracking-wide">Status</label>
-                            <div className="mt-2">
-                                {viagem.fim_em ? (
-                                    viagem.sync ? (
-                                        <span className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full font-medium">
-                                            <span className="w-2 h-2 bg-green-500 rounded-full" />
-                                            Sincronizada
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-2 bg-yellow-100 text-yellow-700 px-4 py-2 rounded-full font-medium">
-                                            <span className="w-2 h-2 bg-yellow-500 rounded-full" />
-                                            Pendente Sync
-                                        </span>
-                                    )
-                                ) : (
-                                    <span className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full font-medium">
-                                        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                                        Em andamento
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Botão de Imprimir */}
+                    {/* Botão de PDF */}
+                    <section className="flex justify-center border-t pt-6">
                         <button
-                            onClick={handlePrint}
-                            className="print:hidden flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+                            type="button"
+                            onClick={handleGeneratePDF}
+                            className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-lg transition-colors font-medium"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            Imprimir
+                            Baixar PDF
                         </button>
                     </section>
                 </div>
 
                 {/* Footer */}
-                <div className="bg-gray-50 px-6 py-4 rounded-b-2xl print:rounded-none border-t">
+                <div className="bg-gray-50 px-6 py-4 rounded-b-2xl border-t">
                     <p className="text-center text-xs text-gray-400">
                         Documento gerado automaticamente pelo sistema TRVALE DO BOI
-                    </p>
-                    <p className="text-center text-xs text-gray-400 mt-1">
-                        {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}
                     </p>
                 </div>
             </div>
