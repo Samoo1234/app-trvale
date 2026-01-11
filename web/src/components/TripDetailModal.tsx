@@ -8,6 +8,7 @@
 import { Viagem } from '@/lib/supabase';
 import { formatarData, formatarKM, calcularDuracao } from '@/lib/utils';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface TripDetailModalProps {
     viagem: Viagem | null;
@@ -21,7 +22,7 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
     // Gerar número da viagem (primeiros 8 caracteres do ID em maiúsculo)
     const numeroViagem = viagem.id.slice(0, 8).toUpperCase();
 
-    // Função para gerar PDF monocromático
+    // Função para gerar PDF com autoTable
     function handleGeneratePDF() {
         if (!viagem) return;
         const trip = viagem;
@@ -29,142 +30,111 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
         const doc = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
-            format: [210, 148.5]
+            format: 'a4' // A4 completo: 210x297mm
         });
 
-        const BLACK = '#000000';
-        const GRAY = '#666666';
-        const LIGHT = '#999999';
+        console.log('Gerando PDF v8 - A4 completo');
 
-        const W = 210;
-        const H = 148.5;
-        const M = 20; // margem maior
-        const CW = W - (M * 2); // 170mm de conteúdo
-        const CENTER = W / 2;
-
+        const MID = 105; // Centro de A4 (210mm / 2)
+        const H = 297; // Altura A4 completa
         let y = 15;
 
-        // ===== TÍTULO CENTRALIZADO =====
-        doc.setTextColor(BLACK);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        doc.text('MINUTA DE TRANSPORTE', CENTER, y, { align: 'center' });
-
-        y += 6;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text('TRVALE DO BOI TRANSPORTADORA', CENTER, y, { align: 'center' });
-
-        y += 6;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Nº ${numeroViagem}`, CENTER, y, { align: 'center' });
-
-        y += 4;
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(GRAY);
-        const agora = new Date();
-        doc.text(`Emitido em ${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`, CENTER, y, { align: 'center' });
-
-        y += 8;
-
-        // ===== LINHA DIVISÓRIA =====
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
-        doc.line(M, y, W - M, y);
-
-        y += 8;
-
-        // ===== TABELA DE DADOS =====
-        const col1 = M;
-        const col2 = M + CW / 2;
-
-        // Linha 1: Motorista | Placa
-        doc.setTextColor(GRAY);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text('MOTORISTA', col1, y);
-        doc.text('PLACA DO VEÍCULO', col2, y);
-
-        y += 5;
-        doc.setTextColor(BLACK);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.text(trip.motoristas?.nome || 'Não informado', col1, y);
-        doc.text(trip.veiculo || 'N/A', col2, y);
-
-        y += 8;
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.2);
-        doc.line(M, y, W - M, y);
-        y += 6;
-
-        // Linha 2: Origem | Destino
-        doc.setTextColor(GRAY);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text('ORIGEM', col1, y);
-        doc.text('DESTINO', col2, y);
-
-        y += 5;
-        doc.setTextColor(BLACK);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        const ori = trip.origem.length > 35 ? trip.origem.slice(0, 32) + '...' : trip.origem;
-        const des = trip.destino.length > 35 ? trip.destino.slice(0, 32) + '...' : trip.destino;
-        doc.text(ori, col1, y);
-        doc.text(des, col2, y);
-
-        y += 8;
-        doc.line(M, y, W - M, y);
-        y += 6;
-
-        // Linha 3: Cabeças | KM | Duração (3 colunas)
-        const colW = CW / 3;
-        const c1 = M + colW / 2;
-        const c2 = M + colW + colW / 2;
-        const c3 = M + colW * 2 + colW / 2;
-
-        doc.setTextColor(GRAY);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text('CABEÇAS DE GADO', c1, y, { align: 'center' });
-        doc.text('KM RODADO', c2, y, { align: 'center' });
-        doc.text('DURAÇÃO', c3, y, { align: 'center' });
-
-        y += 7;
-        doc.setTextColor(BLACK);
+        // TÍTULO
+        doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
-        doc.text(String(trip.qtd_gado), c1, y, { align: 'center' });
-        doc.text(trip.km_total.toFixed(1) + ' km', c2, y, { align: 'center' });
-        doc.setFontSize(14);
-        doc.text(calcularDuracao(trip.inicio_em, trip.fim_em), c3, y, { align: 'center' });
-
-        y += 8;
-        doc.line(M, y, W - M, y);
-        y += 6;
-
-        // Linha 4: Início | Fim
-        doc.setTextColor(GRAY);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text('INÍCIO', col1, y);
-        doc.text('FIM', col2, y);
+        doc.text('MINUTA DE TRANSPORTE', MID, y, { align: 'center' });
 
         y += 5;
-        doc.setTextColor(BLACK);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text(formatarData(trip.inicio_em, true), col1, y);
-        doc.text(trip.fim_em ? formatarData(trip.fim_em, true) : 'Em andamento', col2, y);
-
-        // ===== FOOTER =====
-        doc.setTextColor(LIGHT);
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
+        doc.text('TRVALE DO BOI TRANSPORTADORA', MID, y, { align: 'center' });
+
+        y += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text(`Nº ${numeroViagem}`, MID, y, { align: 'center' });
+
+        y += 4;
         doc.setFontSize(7);
-        doc.text('Documento gerado pelo sistema TRVALE DO BOI', CENTER, H - 10, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 100, 100);
+        const dt = new Date();
+        doc.text(`Emitido em ${dt.toLocaleDateString('pt-BR')} às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`, MID, y, { align: 'center' });
+
+        y += 6;
+
+        // TABELA 1: Motorista e Placa
+        autoTable(doc, {
+            startY: y,
+            margin: { left: 5, right: 5 },
+            head: [['MOTORISTA', 'PLACA DO VEÍCULO']],
+            body: [[trip.motoristas?.nome || 'Não informado', trip.veiculo || 'N/A']],
+            headStyles: { fillColor: [240, 240, 240], textColor: [100, 100, 100], fontSize: 7, fontStyle: 'normal', halign: 'center' },
+            bodyStyles: { textColor: [0, 0, 0], fontSize: 10, fontStyle: 'bold', halign: 'center' },
+            theme: 'plain',
+            styles: { cellPadding: 2 }
+        });
+
+        y = (doc as any).lastAutoTable.finalY + 2;
+
+        // TABELA 2: Origem e Destino
+        autoTable(doc, {
+            startY: y,
+            margin: { left: 5, right: 5 },
+            head: [['ORIGEM', 'DESTINO']],
+            body: [[trip.origem, trip.destino]],
+            headStyles: { fillColor: [240, 240, 240], textColor: [100, 100, 100], fontSize: 7, fontStyle: 'normal', halign: 'center' },
+            bodyStyles: { textColor: [0, 0, 0], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+            theme: 'plain',
+            styles: { cellPadding: 2 }
+        });
+
+        y = (doc as any).lastAutoTable.finalY + 2;
+
+        // TABELA 3: Cabeças, KM, Duração
+        autoTable(doc, {
+            startY: y,
+            margin: { left: 5, right: 5 },
+            head: [['CABEÇAS DE GADO', 'KM RODADO', 'DURAÇÃO']],
+            body: [[
+                String(trip.qtd_gado),
+                trip.km_total.toFixed(1) + ' km',
+                calcularDuracao(trip.inicio_em, trip.fim_em)
+            ]],
+            headStyles: { fillColor: [240, 240, 240], textColor: [100, 100, 100], fontSize: 7, fontStyle: 'normal', halign: 'center' },
+            bodyStyles: { textColor: [0, 0, 0], fontSize: 14, fontStyle: 'bold', halign: 'center' },
+            theme: 'plain',
+            styles: { cellPadding: 3 },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 'auto' }
+            }
+        });
+
+        y = (doc as any).lastAutoTable.finalY + 2;
+
+        // TABELA 4: Início e Fim
+        autoTable(doc, {
+            startY: y,
+            margin: { left: 5, right: 5 },
+            head: [['INÍCIO', 'FIM']],
+            body: [[
+                formatarData(trip.inicio_em, true),
+                trip.fim_em ? formatarData(trip.fim_em, true) : 'Em andamento'
+            ]],
+            headStyles: { fillColor: [240, 240, 240], textColor: [100, 100, 100], fontSize: 7, fontStyle: 'normal', halign: 'center' },
+            bodyStyles: { textColor: [0, 0, 0], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+            theme: 'plain',
+            styles: { cellPadding: 2 }
+        });
+
+        // FOOTER
+        doc.setTextColor(150, 150, 150);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.text('Documento gerado pelo sistema TRVALE DO BOI', MID, H - 8, { align: 'center' });
 
         doc.save(`minuta_${numeroViagem}.pdf`);
     }
