@@ -23,161 +23,204 @@ export function TripDetailModal({ viagem, onClose, isOpen }: TripDetailModalProp
 
     // Função para gerar PDF com jsPDF (meia página A4)
     function handleGeneratePDF() {
-        // Guard clause para TypeScript - viagem já foi verificado no escopo pai
         if (!viagem) return;
-
-        // Captura local para TypeScript type narrowing
         const trip = viagem;
 
-        // Criar documento A4 (210mm x 297mm), mas usaremos metade da altura
         const doc = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
-            format: [210, 148.5] // Meia página A4
+            format: [210, 148.5]
         });
 
-        const primaryColor: [number, number, number] = [183, 28, 28]; // #B71C1C
+        const RED: [number, number, number] = [183, 28, 28];
+        const BLACK: [number, number, number] = [0, 0, 0];
+        const GRAY: [number, number, number] = [100, 100, 100];
+        const LIGHT_GRAY: [number, number, number] = [240, 240, 240];
+        const WHITE: [number, number, number] = [255, 255, 255];
+
         const pageWidth = 210;
+        const margin = 10;
+        const contentWidth = pageWidth - margin * 2;
         let y = 0;
 
-        // ============ HEADER ============
-        doc.setFillColor(...primaryColor);
-        doc.rect(0, 0, pageWidth, 28, 'F');
+        // ============ HEADER VERMELHO ============
+        doc.setFillColor(...RED);
+        doc.rect(0, 0, pageWidth, 22, 'F');
 
-        // Título
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
+        doc.setTextColor(...WHITE);
+        doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text('MINUTA DIGITAL', 10, 12);
+        doc.text('MINUTA DE TRANSPORTE', margin, 10);
 
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text('TRVALE DO BOI - Transportadora', 10, 18);
-
-        // Número da viagem (destaque no header)
         doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Viagem Nº: ${numeroViagem}`, 10, 25);
+        doc.setFont('helvetica', 'normal');
+        doc.text('TRVALE DO BOI TRANSPORTADORA', margin, 17);
 
-        // Data de emissão no canto direito
+        // Número da viagem no canto direito do header
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Nº ${numeroViagem}`, pageWidth - margin, 10, { align: 'right' });
+
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
         const dataEmissao = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        doc.text(dataEmissao, pageWidth - 10, 12, { align: 'right' });
+        doc.text(dataEmissao, pageWidth - margin, 17, { align: 'right' });
 
-        y = 35;
+        y = 28;
 
-        // ============ MOTORISTA E VEÍCULO ============
-        doc.setTextColor(100, 100, 100);
-        doc.setFontSize(7);
-        doc.text('MOTORISTA', 10, y);
-        doc.text('PLACA DO VEÍCULO', 110, y);
+        // ============ SEÇÃO: DADOS DO TRANSPORTE ============
+        // Borda externa
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.3);
+        doc.rect(margin, y, contentWidth, 35);
 
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(11);
+        // Título da seção
+        doc.setFillColor(...LIGHT_GRAY);
+        doc.rect(margin, y, contentWidth, 7, 'F');
+        doc.setTextColor(...BLACK);
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
-        doc.text(trip.motoristas?.nome || 'Não informado', 10, y + 5);
-        doc.text(trip.veiculo || 'N/A', 110, y + 5);
+        doc.text('DADOS DO TRANSPORTE', margin + 3, y + 5);
 
-        y += 15;
+        y += 10;
 
-        // ============ ITINERÁRIO ============
-        doc.setTextColor(100, 100, 100);
+        // Grid 2x2
+        const halfWidth = contentWidth / 2;
+
+        // Linha 1: Motorista | Placa
+        doc.setTextColor(...GRAY);
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
-        doc.text('ORIGEM', 10, y);
-        doc.text('DESTINO', 110, y);
+        doc.text('MOTORISTA', margin + 3, y);
+        doc.text('PLACA DO VEÍCULO', margin + halfWidth + 3, y);
 
-        doc.setTextColor(0, 0, 0);
+        doc.setTextColor(...BLACK);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(trip.motoristas?.nome || 'Não informado', margin + 3, y + 6);
+        doc.text(trip.veiculo || 'N/A', margin + halfWidth + 3, y + 6);
+
+        // Linha divisória horizontal
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, y + 10, margin + contentWidth, y + 10);
+
+        y += 14;
+
+        // Linha 2: Origem | Destino
+        doc.setTextColor(...GRAY);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('ORIGEM', margin + 3, y);
+        doc.text('DESTINO', margin + halfWidth + 3, y);
+
+        doc.setTextColor(...BLACK);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
 
-        // Truncar texto longo
-        const maxTextWidth = 90;
-        const origem = trip.origem.length > 40 ? trip.origem.substring(0, 37) + '...' : trip.origem;
-        const destino = trip.destino.length > 40 ? trip.destino.substring(0, 37) + '...' : trip.destino;
+        const origem = trip.origem.length > 35 ? trip.origem.substring(0, 32) + '...' : trip.origem;
+        const destino = trip.destino.length > 35 ? trip.destino.substring(0, 32) + '...' : trip.destino;
 
-        doc.text(origem, 10, y + 5);
-        doc.text(destino, 110, y + 5);
+        doc.text(origem, margin + 3, y + 6);
+        doc.text(destino, margin + halfWidth + 3, y + 6);
 
-        // Seta entre origem e destino
-        doc.setTextColor(...primaryColor);
-        doc.setFontSize(14);
-        doc.text('→', 100, y + 5);
+        // Linha divisória vertical central
+        doc.line(margin + halfWidth, y - 14, margin + halfWidth, y + 10);
 
         y += 18;
 
-        // ============ LINHA DIVISÓRIA ============
-        doc.setDrawColor(200, 200, 200);
-        doc.line(10, y, pageWidth - 10, y);
-        y += 5;
+        // ============ SEÇÃO: DADOS DA CARGA ============
+        doc.setDrawColor(180, 180, 180);
+        doc.rect(margin, y, contentWidth, 28);
 
-        // ============ DADOS DA CARGA (3 COLUNAS) ============
-        const colWidth = (pageWidth - 20) / 3;
-
-        // Cabeças de Gado
-        doc.setFillColor(220, 252, 231); // verde claro
-        doc.roundedRect(10, y, colWidth - 5, 25, 3, 3, 'F');
-        doc.setTextColor(22, 101, 52);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text('CABEÇAS DE GADO', 10 + (colWidth - 5) / 2, y + 6, { align: 'center' });
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(String(trip.qtd_gado), 10 + (colWidth - 5) / 2, y + 18, { align: 'center' });
-
-        // KM Percorrido
-        doc.setFillColor(254, 226, 226); // vermelho claro
-        doc.roundedRect(10 + colWidth, y, colWidth - 5, 25, 3, 3, 'F');
-        doc.setTextColor(...primaryColor);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text('KM PERCORRIDO', 10 + colWidth + (colWidth - 5) / 2, y + 6, { align: 'center' });
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(formatarKM(trip.km_total), 10 + colWidth + (colWidth - 5) / 2, y + 18, { align: 'center' });
-
-        // Duração
-        doc.setFillColor(229, 231, 235); // cinza claro
-        doc.roundedRect(10 + colWidth * 2, y, colWidth - 5, 25, 3, 3, 'F');
-        doc.setTextColor(55, 65, 81);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text('DURAÇÃO', 10 + colWidth * 2 + (colWidth - 5) / 2, y + 6, { align: 'center' });
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text(calcularDuracao(trip.inicio_em, trip.fim_em), 10 + colWidth * 2 + (colWidth - 5) / 2, y + 18, { align: 'center' });
-
-        y += 32;
-
-        // ============ DATAS ============
-        doc.setTextColor(100, 100, 100);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text('INÍCIO DA VIAGEM', 10, y);
-        doc.text('FIM DA VIAGEM', 110, y);
-
-        doc.setTextColor(0, 0, 0);
+        doc.setFillColor(...LIGHT_GRAY);
+        doc.rect(margin, y, contentWidth, 7, 'F');
+        doc.setTextColor(...BLACK);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
-        doc.text(formatarData(trip.inicio_em, true), 10, y + 5);
-        doc.text(trip.fim_em ? formatarData(trip.fim_em, true) : 'Em andamento', 110, y + 5);
+        doc.text('DADOS DA CARGA', margin + 3, y + 5);
+
+        y += 10;
+
+        // 3 colunas: Cabeças | KM | Duração
+        const colWidth = contentWidth / 3;
+
+        // Coluna 1: Cabeças
+        doc.setTextColor(...GRAY);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('CABEÇAS DE GADO', margin + colWidth / 2, y, { align: 'center' });
+        doc.setTextColor(22, 101, 52); // verde
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(String(trip.qtd_gado), margin + colWidth / 2, y + 10, { align: 'center' });
+
+        // Coluna 2: KM
+        doc.setTextColor(...GRAY);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('KM PERCORRIDO', margin + colWidth + colWidth / 2, y, { align: 'center' });
+        doc.setTextColor(...RED);
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(formatarKM(trip.km_total), margin + colWidth + colWidth / 2, y + 10, { align: 'center' });
+
+        // Coluna 3: Duração
+        doc.setTextColor(...GRAY);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('DURAÇÃO', margin + colWidth * 2 + colWidth / 2, y, { align: 'center' });
+        doc.setTextColor(...BLACK);
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(calcularDuracao(trip.inicio_em, trip.fim_em), margin + colWidth * 2 + colWidth / 2, y + 10, { align: 'center' });
+
+        // Linhas divisórias verticais
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin + colWidth, y - 3, margin + colWidth, y + 14);
+        doc.line(margin + colWidth * 2, y - 3, margin + colWidth * 2, y + 14);
+
+        y += 21;
+
+        // ============ SEÇÃO: PERÍODO ============
+        doc.setDrawColor(180, 180, 180);
+        doc.rect(margin, y, contentWidth, 20);
+
+        doc.setFillColor(...LIGHT_GRAY);
+        doc.rect(margin, y, contentWidth, 7, 'F');
+        doc.setTextColor(...BLACK);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('PERÍODO DA VIAGEM', margin + 3, y + 5);
+
+        y += 10;
+
+        // Início | Fim
+        doc.setTextColor(...GRAY);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text('INÍCIO', margin + 3, y);
+        doc.text('FIM', margin + halfWidth + 3, y);
+
+        doc.setTextColor(...BLACK);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(formatarData(trip.inicio_em, true), margin + 3, y + 6);
+        doc.text(trip.fim_em ? formatarData(trip.fim_em, true) : 'Em andamento', margin + halfWidth + 3, y + 6);
+
+        // Linha divisória vertical
+        doc.line(margin + halfWidth, y - 3, margin + halfWidth, y + 8);
 
         y += 15;
 
         // ============ FOOTER ============
-        doc.setDrawColor(200, 200, 200);
-        doc.line(10, y, pageWidth - 10, y);
-        y += 5;
-
         doc.setTextColor(150, 150, 150);
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
         doc.text('Documento gerado automaticamente pelo sistema TRVALE DO BOI', pageWidth / 2, y + 3, { align: 'center' });
 
-        // Salvar PDF
         doc.save(`minuta_${numeroViagem}.pdf`);
     }
+
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
