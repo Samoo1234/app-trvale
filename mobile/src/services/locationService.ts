@@ -9,11 +9,13 @@ import { salvarPontoGPS, atualizarKmViagem, buscarPontosGPS } from './databaseSe
 
 // Configurações do rastreamento GPS - OTIMIZADO PARA MÁXIMA PRECISÃO
 const CONFIG = {
-    INTERVALO_MS: 1000,           // Captura a cada 1 segundo (5x mais pontos)
-    DISTANCIA_MINIMA_M: 3,        // Ignora apenas ruídos < 3 metros
-    PRECISAO_MAXIMA_M: 15,        // Descarta pontos com precisão GPS > 15m
-    VELOCIDADE_MAXIMA_MS: 33.3,   // ~120 km/h - detecta saltos impossíveis
-    PRECISAO_ALTA: true,          // Usar GPS de alta precisão
+    INTERVALO_MS: 1000,             // Captura a cada 1 segundo
+    DISTANCIA_MINIMA_M: 5,          // Ignora ruídos < 5 metros (aumentado de 3)
+    PRECISAO_MAXIMA_M: 10,          // Descarta pontos com precisão GPS > 10m (mais rigoroso)
+    VELOCIDADE_MAXIMA_MS: 33.3,     // ~120 km/h - detecta saltos impossíveis
+    VELOCIDADE_MINIMA_MS: 0.83,     // ~3 km/h - velocidade mínima para considerar movimento real
+    PONTOS_ESTABILIZACAO: 3,        // Aguarda 3 pontos estáveis antes de começar a contar
+    PRECISAO_ALTA: true,            // Usar GPS de alta precisão
 };
 
 // Variáveis de controle
@@ -22,6 +24,7 @@ let viagemId: string | null = null;
 let ultimaLocalizacao: { latitude: number; longitude: number; accuracy?: number; timestamp?: number } | null = null;
 let kmAcumulado: number = 0;
 let callbackAtualizacao: ((km: number) => void) | null = null;
+let pontosEstabilizacao: number = 0; // Contador para estabilização inicial
 
 /**
  * Solicitar permissão de localização
@@ -112,6 +115,7 @@ export async function iniciarRastreamentoGPS(
     viagemId = idViagem;
     ultimaLocalizacao = null;
     kmAcumulado = 0;
+    pontosEstabilizacao = 0; // Resetar contador de estabilização
     callbackAtualizacao = onKmAtualizado || null;
 
     // Carregar pontos existentes para calcular KM acumulado
@@ -167,7 +171,7 @@ export async function iniciarRastreamentoGPS(
 
 /**
  * Processar nova localização recebida do GPS
- * Inclui filtros de qualidade para máxima precisão
+ * Inclui filtros robustos para máxima precisão
  */
 async function processarNovaLocalizacao(location: Location.LocationObject): Promise<void> {
     if (!viagemId) return;
@@ -175,10 +179,9 @@ async function processarNovaLocalizacao(location: Location.LocationObject): Prom
     const accuracy = location.coords.accuracy || 999;
     const timestamp = location.timestamp;
 
-    // FILTRO 1: Verificar precisão do GPS
-    // Descartar pontos com precisão muito baixa (erro alto)
+    // FILTRO 1: Verificar precisão do GPS (mais rigoroso)
     if (accuracy > CONFIG.PRECISAO_MAXIMA_M) {
-        console.log(`[GPS] Ponto descartado - precisão ruim: ${accuracy.toFixed(0)}m`);
+        console.log(`[GPS] Descartado - precisão ruim: ${accuracy.toFixed(0)}m (máx: ${CONFIG.PRECISAO_MAXIMA_M}m)`);
         return;
     }
 
@@ -189,15 +192,15 @@ async function processarNovaLocalizacao(location: Location.LocationObject): Prom
         timestamp: timestamp,
     };
 
-    // Se é o primeiro ponto, apenas salvar
+    // Se é o primeiro ponto, iniciar estabilização
     if (!ultimaLocalizacao) {
         ultimaLocalizacao = novaLocalizacao;
-        await salvarPontoGPS(viagemId, novaLocalizacao.latitude, novaLocalizacao.longitude);
-        console.log(`[GPS] Primeiro ponto registrado (precisão: ${accuracy.toFixed(0)}m)`);
+        pontosEstabilizacao = 1;
+        console.log(`[GPS] Iniciando estabilização (ponto 1/${CONFIG.PONTOS_ESTABILIZACAO})`);
         return;
     }
 
-    // Calcular distância percorrida
+    // Calcular distância e velocidade
     const distancia = calcularDistanciaHaversine(
         ultimaLocalizacao.latitude,
         ultimaLocalizacao.longitude,
@@ -205,25 +208,41 @@ async function processarNovaLocalizacao(location: Location.LocationObject): Prom
         novaLocalizacao.longitude
     );
 
+    const tempoDecorrido = (timestamp - (ultimaLocalizacao.timestamp || timestamp)) / 1000;
+    const velocidade = tempoDecorrido > 0 ? distancia / tempoDecorrido : 0;
+
     // FILTRO 2: Verificar velocidade impossível (saltos de GPS)
-    const tempoDecorrido = (timestamp - (ultimaLocalizacao.timestamp || timestamp)) / 1000; // segundos
-    if (tempoDecorrido > 0) {
-        const velocidade = distancia / tempoDecorrido; // metros/segundo
-        if (velocidade > CONFIG.VELOCIDADE_MAXIMA_MS) {
-            console.log(`[GPS] Ponto descartado - velocidade impossível: ${(velocidade * 3.6).toFixed(0)} km/h`);
-            return;
-        }
+    if (velocidade > CONFIG.VELOCIDADE_MAXIMA_MS) {
+        console.log(`[GPS] Descartado - velocidade impossível: ${(velocidade * 3.6).toFixed(0)} km/h`);
+        return;
     }
 
-    // FILTRO 3: Verificar deslocamento mínimo (ruído de GPS)
+    // FILTRO 3: Estabilização inicial - aguardar GPS estabilizar
+    if (pontosEstabilizacao < CONFIG.PONTOS_ESTABILIZACAO) {
+        // Durante estabilização, só atualiza a posição se houver movimento significativo
+        if (distancia >= CONFIG.DISTANCIA_MINIMA_M && velocidade >= CONFIG.VELOCIDADE_MINIMA_MS) {
+            pontosEstabilizacao++;
+            console.log(`[GPS] Estabilização (ponto ${pontosEstabilizacao}/${CONFIG.PONTOS_ESTABILIZACAO})`);
+        }
+        ultimaLocalizacao = novaLocalizacao;
+        return;
+    }
+
+    // FILTRO 4: Verificar deslocamento mínimo (ruído de GPS)
     if (distancia < CONFIG.DISTANCIA_MINIMA_M) {
-        // Não é erro, apenas não houve movimento significativo
+        return; // Sem movimento significativo
+    }
+
+    // FILTRO 5: Verificar velocidade mínima (confirmar movimento real)
+    // Evita acumular ruído de GPS quando veículo está parado
+    if (velocidade < CONFIG.VELOCIDADE_MINIMA_MS) {
+        console.log(`[GPS] Descartado - velocidade muito baixa: ${(velocidade * 3.6).toFixed(1)} km/h (ruído)`);
         return;
     }
 
     // Ponto válido - atualizar dados
     kmAcumulado += distancia;
-    const kmAtual = kmAcumulado / 1000; // Converter para KM
+    const kmAtual = kmAcumulado / 1000;
 
     // Salvar ponto no banco
     await salvarPontoGPS(viagemId, novaLocalizacao.latitude, novaLocalizacao.longitude);
@@ -236,7 +255,7 @@ async function processarNovaLocalizacao(location: Location.LocationObject): Prom
         callbackAtualizacao(kmAtual);
     }
 
-    console.log(`[GPS] +${distancia.toFixed(0)}m | Total: ${kmAtual.toFixed(2)}km | Precisão: ${accuracy.toFixed(0)}m`);
+    console.log(`[GPS] +${distancia.toFixed(0)}m | Total: ${kmAtual.toFixed(2)}km | Vel: ${(velocidade * 3.6).toFixed(0)}km/h | Prec: ${accuracy.toFixed(0)}m`);
 
     // Atualizar última localização
     ultimaLocalizacao = novaLocalizacao;
