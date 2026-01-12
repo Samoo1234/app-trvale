@@ -25,6 +25,7 @@ import {
     pararRastreamentoGPS,
     rastreamentoAtivo,
     obterKmAtual,
+    obterPrecisaoAtual,
 } from '../services/locationService';
 import { RootStackParamList, ViagemLocal } from '../types';
 
@@ -42,6 +43,7 @@ export function ViagemAtivaScreen({ navigation, route }: ViagemAtivaScreenProps)
     const [tempoDecorrido, setTempoDecorrido] = useState(0);
     const [loading, setLoading] = useState(true);
     const [finalizando, setFinalizando] = useState(false);
+    const [precisaoGPS, setPrecisaoGPS] = useState(0);
 
     // Refs para controle
     const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -108,6 +110,8 @@ export function ViagemAtivaScreen({ navigation, route }: ViagemAtivaScreenProps)
 
         timerRef.current = setInterval(() => {
             setTempoDecorrido(prev => prev + 1);
+            // Atualizar precisão do GPS
+            setPrecisaoGPS(obterPrecisaoAtual());
         }, 1000);
     }
 
@@ -271,9 +275,18 @@ export function ViagemAtivaScreen({ navigation, route }: ViagemAtivaScreenProps)
 
                 {/* Status do GPS */}
                 <View style={styles.gpsStatus}>
-                    <View style={[styles.gpsIndicator, rastreamentoAtivo() && styles.gpsActive]} />
+                    <View style={[
+                        styles.gpsIndicator,
+                        rastreamentoAtivo() && (
+                            precisaoGPS <= 5 ? styles.gpsExcelente :
+                                precisaoGPS <= 10 ? styles.gpsActive :
+                                    styles.gpsMedio
+                        )
+                    ]} />
                     <Text style={styles.gpsText}>
-                        {rastreamentoAtivo() ? 'GPS Ativo - Capturando localização' : 'GPS Inativo'}
+                        {rastreamentoAtivo()
+                            ? `GPS ${precisaoGPS <= 5 ? '🟢 Alta' : precisaoGPS <= 10 ? '🟡 Média' : '🟠 Baixa'} precisão (±${precisaoGPS.toFixed(0)}m)`
+                            : 'GPS Inativo'}
                     </Text>
                 </View>
 
@@ -414,6 +427,12 @@ const styles = StyleSheet.create({
     },
     gpsActive: {
         backgroundColor: colors.success,
+    },
+    gpsExcelente: {
+        backgroundColor: '#22c55e', // Verde brilhante
+    },
+    gpsMedio: {
+        backgroundColor: '#f59e0b', // Laranja/amarelo
     },
     gpsText: {
         fontSize: fontSize.sm,

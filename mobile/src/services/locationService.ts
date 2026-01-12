@@ -7,17 +7,19 @@ import * as Location from 'expo-location';
 import { calcularDistanciaHaversine, deslocamentoSignificativo } from '../utils/haversine';
 import { salvarPontoGPS, atualizarKmViagem, buscarPontosGPS } from './databaseService';
 
-// Configurações do rastreamento GPS
+// Configurações do rastreamento GPS - OTIMIZADO PARA MÁXIMA PRECISÃO
 const CONFIG = {
-    INTERVALO_MS: 5000,           // Captura a cada 5 segundos
-    DISTANCIA_MINIMA_M: 10,       // Ignora deslocamentos menores que 10 metros
+    INTERVALO_MS: 1000,           // Captura a cada 1 segundo (5x mais pontos)
+    DISTANCIA_MINIMA_M: 3,        // Ignora apenas ruídos < 3 metros
+    PRECISAO_MAXIMA_M: 15,        // Descarta pontos com precisão GPS > 15m
+    VELOCIDADE_MAXIMA_MS: 33.3,   // ~120 km/h - detecta saltos impossíveis
     PRECISAO_ALTA: true,          // Usar GPS de alta precisão
 };
 
 // Variáveis de controle
 let watchSubscription: Location.LocationSubscription | null = null;
 let viagemId: string | null = null;
-let ultimaLocalizacao: { latitude: number; longitude: number } | null = null;
+let ultimaLocalizacao: { latitude: number; longitude: number; accuracy?: number; timestamp?: number } | null = null;
 let kmAcumulado: number = 0;
 let callbackAtualizacao: ((km: number) => void) | null = null;
 
@@ -165,61 +167,79 @@ export async function iniciarRastreamentoGPS(
 
 /**
  * Processar nova localização recebida do GPS
+ * Inclui filtros de qualidade para máxima precisão
  */
 async function processarNovaLocalizacao(location: Location.LocationObject): Promise<void> {
     if (!viagemId) return;
 
+    const accuracy = location.coords.accuracy || 999;
+    const timestamp = location.timestamp;
+
+    // FILTRO 1: Verificar precisão do GPS
+    // Descartar pontos com precisão muito baixa (erro alto)
+    if (accuracy > CONFIG.PRECISAO_MAXIMA_M) {
+        console.log(`[GPS] Ponto descartado - precisão ruim: ${accuracy.toFixed(0)}m`);
+        return;
+    }
+
     const novaLocalizacao = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
+        accuracy: accuracy,
+        timestamp: timestamp,
     };
 
     // Se é o primeiro ponto, apenas salvar
     if (!ultimaLocalizacao) {
         ultimaLocalizacao = novaLocalizacao;
         await salvarPontoGPS(viagemId, novaLocalizacao.latitude, novaLocalizacao.longitude);
-        console.log('[GPS] Primeiro ponto registrado');
+        console.log(`[GPS] Primeiro ponto registrado (precisão: ${accuracy.toFixed(0)}m)`);
         return;
     }
 
-    // Verificar se houve deslocamento significativo
-    const deslocouSignificativamente = deslocamentoSignificativo(
+    // Calcular distância percorrida
+    const distancia = calcularDistanciaHaversine(
         ultimaLocalizacao.latitude,
         ultimaLocalizacao.longitude,
         novaLocalizacao.latitude,
-        novaLocalizacao.longitude,
-        CONFIG.DISTANCIA_MINIMA_M
+        novaLocalizacao.longitude
     );
 
-    if (deslocouSignificativamente) {
-        // Calcular distância percorrida
-        const distancia = calcularDistanciaHaversine(
-            ultimaLocalizacao.latitude,
-            ultimaLocalizacao.longitude,
-            novaLocalizacao.latitude,
-            novaLocalizacao.longitude
-        );
-
-        // Atualizar KM acumulado
-        kmAcumulado += distancia;
-        const kmAtual = kmAcumulado / 1000; // Converter para KM
-
-        // Salvar ponto no banco
-        await salvarPontoGPS(viagemId, novaLocalizacao.latitude, novaLocalizacao.longitude);
-
-        // Atualizar KM da viagem no banco
-        await atualizarKmViagem(viagemId, kmAtual);
-
-        // Chamar callback de atualização
-        if (callbackAtualizacao) {
-            callbackAtualizacao(kmAtual);
+    // FILTRO 2: Verificar velocidade impossível (saltos de GPS)
+    const tempoDecorrido = (timestamp - (ultimaLocalizacao.timestamp || timestamp)) / 1000; // segundos
+    if (tempoDecorrido > 0) {
+        const velocidade = distancia / tempoDecorrido; // metros/segundo
+        if (velocidade > CONFIG.VELOCIDADE_MAXIMA_MS) {
+            console.log(`[GPS] Ponto descartado - velocidade impossível: ${(velocidade * 3.6).toFixed(0)} km/h`);
+            return;
         }
-
-        console.log(`[GPS] Novo ponto. Distância: ${distancia.toFixed(0)}m | Total: ${kmAtual.toFixed(2)}km`);
-
-        // Atualizar última localização
-        ultimaLocalizacao = novaLocalizacao;
     }
+
+    // FILTRO 3: Verificar deslocamento mínimo (ruído de GPS)
+    if (distancia < CONFIG.DISTANCIA_MINIMA_M) {
+        // Não é erro, apenas não houve movimento significativo
+        return;
+    }
+
+    // Ponto válido - atualizar dados
+    kmAcumulado += distancia;
+    const kmAtual = kmAcumulado / 1000; // Converter para KM
+
+    // Salvar ponto no banco
+    await salvarPontoGPS(viagemId, novaLocalizacao.latitude, novaLocalizacao.longitude);
+
+    // Atualizar KM da viagem no banco
+    await atualizarKmViagem(viagemId, kmAtual);
+
+    // Chamar callback de atualização
+    if (callbackAtualizacao) {
+        callbackAtualizacao(kmAtual);
+    }
+
+    console.log(`[GPS] +${distancia.toFixed(0)}m | Total: ${kmAtual.toFixed(2)}km | Precisão: ${accuracy.toFixed(0)}m`);
+
+    // Atualizar última localização
+    ultimaLocalizacao = novaLocalizacao;
 }
 
 /**
@@ -257,4 +277,12 @@ export function rastreamentoAtivo(): boolean {
  */
 export function obterKmAtual(): number {
     return kmAcumulado / 1000;
+}
+
+/**
+ * Obter precisão atual do GPS em metros
+ * Quanto menor, melhor a precisão
+ */
+export function obterPrecisaoAtual(): number {
+    return ultimaLocalizacao?.accuracy || 0;
 }
