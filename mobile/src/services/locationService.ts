@@ -196,11 +196,24 @@ async function processarNovaLocalizacao(location: Location.LocationObject): Prom
     if (!ultimaLocalizacao) {
         ultimaLocalizacao = novaLocalizacao;
         pontosEstabilizacao = 1;
-        console.log(`[GPS] Iniciando estabilização (ponto 1/${CONFIG.PONTOS_ESTABILIZACAO})`);
+        await salvarPontoGPS(viagemId, novaLocalizacao.latitude, novaLocalizacao.longitude);
+        console.log(`[GPS] Primeiro ponto registrado (precisão: ${accuracy.toFixed(0)}m)`);
         return;
     }
 
-    // Calcular distância e velocidade
+    // Calcular tempo decorrido desde último ponto
+    const tempoDecorrido = (timestamp - (ultimaLocalizacao.timestamp || timestamp)) / 1000;
+
+    // DETECÇÃO DE GAP: Se passou muito tempo (>30 segundos), reiniciar rastreamento
+    // Isso acontece quando o app volta do background ou após parada longa
+    if (tempoDecorrido > 30) {
+        console.log(`[GPS] Gap detectado (${tempoDecorrido.toFixed(0)}s) - reiniciando referência`);
+        ultimaLocalizacao = novaLocalizacao;
+        await salvarPontoGPS(viagemId, novaLocalizacao.latitude, novaLocalizacao.longitude);
+        return;
+    }
+
+    // Calcular distância
     const distancia = calcularDistanciaHaversine(
         ultimaLocalizacao.latitude,
         ultimaLocalizacao.longitude,
@@ -208,18 +221,18 @@ async function processarNovaLocalizacao(location: Location.LocationObject): Prom
         novaLocalizacao.longitude
     );
 
-    const tempoDecorrido = (timestamp - (ultimaLocalizacao.timestamp || timestamp)) / 1000;
     const velocidade = tempoDecorrido > 0 ? distancia / tempoDecorrido : 0;
 
     // FILTRO 2: Verificar velocidade impossível (saltos de GPS)
     if (velocidade > CONFIG.VELOCIDADE_MAXIMA_MS) {
         console.log(`[GPS] Descartado - velocidade impossível: ${(velocidade * 3.6).toFixed(0)} km/h`);
+        // IMPORTANTE: Atualizar timestamp para evitar loop de descarte
+        ultimaLocalizacao = { ...ultimaLocalizacao, timestamp: timestamp };
         return;
     }
 
     // FILTRO 3: Estabilização inicial - aguardar GPS estabilizar
     if (pontosEstabilizacao < CONFIG.PONTOS_ESTABILIZACAO) {
-        // Durante estabilização, só atualiza a posição se houver movimento significativo
         if (distancia >= CONFIG.DISTANCIA_MINIMA_M && velocidade >= CONFIG.VELOCIDADE_MINIMA_MS) {
             pontosEstabilizacao++;
             console.log(`[GPS] Estabilização (ponto ${pontosEstabilizacao}/${CONFIG.PONTOS_ESTABILIZACAO})`);
@@ -230,13 +243,16 @@ async function processarNovaLocalizacao(location: Location.LocationObject): Prom
 
     // FILTRO 4: Verificar deslocamento mínimo (ruído de GPS)
     if (distancia < CONFIG.DISTANCIA_MINIMA_M) {
-        return; // Sem movimento significativo
+        // Atualizar timestamp mesmo sem movimento para evitar gap
+        ultimaLocalizacao = { ...ultimaLocalizacao, timestamp: timestamp };
+        return;
     }
 
     // FILTRO 5: Verificar velocidade mínima (confirmar movimento real)
-    // Evita acumular ruído de GPS quando veículo está parado
     if (velocidade < CONFIG.VELOCIDADE_MINIMA_MS) {
-        console.log(`[GPS] Descartado - velocidade muito baixa: ${(velocidade * 3.6).toFixed(1)} km/h (ruído)`);
+        console.log(`[GPS] Descartado - velocidade muito baixa: ${(velocidade * 3.6).toFixed(1)} km/h`);
+        // Atualizar timestamp para evitar gap
+        ultimaLocalizacao = { ...ultimaLocalizacao, timestamp: timestamp };
         return;
     }
 
